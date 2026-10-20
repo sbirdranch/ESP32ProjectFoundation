@@ -1,18 +1,25 @@
 #include <Arduino.h>
 
-// put function declarations here:
-int myFunction(int, int);
+#include "LedSwitch.h"
+#include "MqttSwitch.h"
+#include "OtaService.h"
+#include "WifiService.h"
+
+LedSwitch ledSwitch;
+MqttSwitch mqttSwitch(ledSwitch);
+OtaService otaService;
+WifiService wifiService;
 
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+    Serial.begin(115200);
+    ledSwitch.begin();
+    wifiService.begin();
+    mqttSwitch.begin();
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-}
-
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+    wifiService.loop();
+    otaService.beginIfReady(wifiService.isConnected());
+    otaService.loop();
+    mqttSwitch.loop(wifiService.isConnected());
 }
