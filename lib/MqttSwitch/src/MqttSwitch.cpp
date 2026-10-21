@@ -143,6 +143,7 @@ void MqttSwitch::publishDiscovery() {
     device["name"] = AppConfig::DeviceName;
     device["manufacturer"] = "Lonely Binary";
     device["model"] = "ESP32-S3 N16R8";
+    device["sw_version"] = AppConfig::FirmwareVersion;
 
     char payload[1024];
     const size_t payloadLength = serializeJson(document, payload, sizeof(payload));

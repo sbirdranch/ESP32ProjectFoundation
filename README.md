@@ -71,6 +71,24 @@ The initial broker is `192.168.0.179:1883` over plain MQTT/TCP, with anonymous a
 
 The device publishes reported state and discovery retained, and uses an MQTT Last Will for offline availability. Commands should not be published retained. The broker permits anonymous, unrestricted publish/subscribe on the home LAN, so do not send secrets over MQTT or expose this device to untrusted networks.
 
+## Foundation Validation and Future Wall Panel
+
+See [Foundation Completion and Future Wall Panel Plan](docs/FOUNDATION_PLAN.md)
+for the MQTT test runner, HA checklist, OTA version tests, acceptance results,
+and the future panel discovery design. Firmware starts at version `0.1.0`, printed
+at boot and included in HA discovery as `device.sw_version`.
+
+```powershell
+python -m venv .venv-test
+.\.venv-test\Scripts\python.exe -m pip install -r tools/requirements-test.txt
+.\.venv-test\Scripts\python.exe tools/test_mqtt.py --device-id esp32-foundation-01
+```
+
+The test controls the selected device's LED. Pause competing controllers first;
+add `--interactive` for operator-assisted power/Wi-Fi and physical LED checks.
+Reports go to `.pio/mqtt-test-report.json`. Hardware, HA and OTA checks remain
+Pending until actually observed; a successful automated run does not grant sign-off.
+
 ## Board Reference
 
 [Lonely Binary ESP32-S3 N16R8 board guide](https://learn.lonelybinary.com/boards/esp32-s3)

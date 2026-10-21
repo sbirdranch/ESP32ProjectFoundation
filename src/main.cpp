@@ -15,6 +15,7 @@ WifiService wifiService;
 
 void setup() {
     Serial.begin(115200);
+    Serial.printf("Firmware version: %s\n", AppConfig::FirmwareVersion);
     Serial.println("ESP32 Foundation: Wi-Fi, MQTT, OTA and startup indicator enabled");
     Serial.println("LED driver: ESP32 Arduino core neopixelWrite");
     Serial.printf("LED configuration: WS2812, GPIO%d, GRB, brightness=%u\n",
