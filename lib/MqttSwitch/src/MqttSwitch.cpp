@@ -26,7 +26,7 @@ void MqttSwitch::begin() {
     activeInstance_ = this;
     mqttClient_.setServer(AppConfig::MqttHost, AppConfig::MqttPort);
     mqttClient_.setCallback(messageCallback);
-    if (!mqttClient_.setBufferSize(512)) {
+    if (!mqttClient_.setBufferSize(1024)) {
         Serial.println("MQTT error: unable to set packet buffer size");
     }
     mqttClient_.setKeepAlive(30);
@@ -144,7 +144,7 @@ void MqttSwitch::publishDiscovery() {
     device["manufacturer"] = "Lonely Binary";
     device["model"] = "ESP32-S3 N16R8";
 
-    char payload[512];
+    char payload[1024];
     const size_t payloadLength = serializeJson(document, payload, sizeof(payload));
     if (payloadLength == 0 || payloadLength >= sizeof(payload)) {
         Serial.println("MQTT error: unable to serialize Home Assistant discovery");

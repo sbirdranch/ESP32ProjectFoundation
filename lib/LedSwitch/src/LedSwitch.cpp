@@ -1,12 +1,13 @@
+#include <esp32-hal-rgb-led.h>
+
 #include "AppConfig.h"
 #include "LedSwitch.h"
 
 void LedSwitch::begin() {
-    FastLED.addLeds<WS2812, AppConfig::LedPin, GRB>(pixels_, 1);
-    FastLED.setBrightness(AppConfig::LedBrightness);
     isOn_ = false;
-    pixels_[0] = CRGB::Black;
-    FastLED.show();
+    startupActive_ = false;
+    // The Arduino core sends GRB data using its own RMT implementation.
+    neopixelWrite(AppConfig::LedPin, 0, 0, 0);
     initialized_ = true;
 }
 
@@ -31,8 +32,7 @@ void LedSwitch::showStartupPulse(bool on) {
     }
 
     startupActive_ = true;
-    pixels_[0] = on ? CRGB::Blue : CRGB::Black;
-    FastLED.show();
+    neopixelWrite(AppConfig::LedPin, 0, 0, on ? AppConfig::LedBrightness : 0);
 }
 
 void LedSwitch::endStartup() {
@@ -41,6 +41,5 @@ void LedSwitch::endStartup() {
 }
 
 void LedSwitch::showSwitchState() {
-    pixels_[0] = isOn_ ? CRGB::Green : CRGB::Black;
-    FastLED.show();
+    neopixelWrite(AppConfig::LedPin, 0, isOn_ ? AppConfig::LedBrightness : 0, 0);
 }

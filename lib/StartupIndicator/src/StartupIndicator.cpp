@@ -6,8 +6,7 @@
 namespace {
 constexpr unsigned long kFastHalfPeriodMs = 250;
 constexpr unsigned long kSlowHalfPeriodMs = 500;
-constexpr unsigned long kSlowPhaseDurationMs = 2000;
-constexpr unsigned int kFastFlashLimit = 4;
+constexpr unsigned long kMinimumPhaseDurationMs = 2000;
 }
 
 StartupIndicator::StartupIndicator(LedSwitch& ledSwitch)
@@ -15,12 +14,12 @@ StartupIndicator::StartupIndicator(LedSwitch& ledSwitch)
 
 void StartupIndicator::begin() {
     const unsigned long now = millis();
-    phase_ = Phase::FastWifi;
-    fastFlashCount_ = 0;
+    phase_ = Phase::SlowWifi;
+    phaseStartedAt_ = now;
+    lastToggleAt_ = now;
     ledOn_ = true;
-    nextToggleAt_ = now + kFastHalfPeriodMs;
     ledSwitch_.showStartupPulse(ledOn_);
-    Serial.println("Startup LED: fast Wi-Fi search pattern");
+    Serial.println("Startup LED: slow Wi-Fi pattern (minimum 2 seconds)");
 }
 
 void StartupIndicator::update(bool wifiConnected, bool mqttConnected) {
@@ -29,50 +28,37 @@ void StartupIndicator::update(bool wifiConnected, bool mqttConnected) {
     }
 
     const unsigned long now = millis();
-    if (mqttConnected) {
-        Serial.println("Startup LED: MQTT connected");
-        complete();
+    // Each phase requires both its connection and its own minimum display time.
+    // An already-connected MQTT client must not skip either visible pattern.
+    if (now - phaseStartedAt_ >= kMinimumPhaseDurationMs) {
+        if (phase_ == Phase::SlowWifi && wifiConnected) {
+            beginMqttPhase(now);
+            return;
+        }
+        if (phase_ == Phase::FastMqtt && wifiConnected && mqttConnected) {
+            Serial.println("Startup LED: connections ready; minimum patterns complete");
+            complete();
+            return;
+        }
+    }
+
+    const unsigned long halfPeriodMs =
+        phase_ == Phase::SlowWifi ? kSlowHalfPeriodMs : kFastHalfPeriodMs;
+    if (now - lastToggleAt_ < halfPeriodMs) {
         return;
     }
-
-    if (phase_ == Phase::FastWifi &&
-        (wifiConnected || fastFlashCount_ >= kFastFlashLimit)) {
-        beginSlowPhase(now);
-    }
-
-    if (phase_ == Phase::SlowMqtt && now - slowPhaseStartedAt_ >= kSlowPhaseDurationMs) {
-        Serial.println("Startup LED: connection pattern complete");
-        complete();
-        return;
-    }
-
-    if (static_cast<long>(now - nextToggleAt_) < 0) {
-        return;
-    }
-
+    lastToggleAt_ = now;
     ledOn_ = !ledOn_;
     ledSwitch_.showStartupPulse(ledOn_);
-
-    if (phase_ == Phase::FastWifi) {
-        if (!ledOn_) {
-            ++fastFlashCount_;
-        }
-        nextToggleAt_ = now + kFastHalfPeriodMs;
-        if (fastFlashCount_ >= kFastFlashLimit) {
-            beginSlowPhase(now);
-        }
-    } else {
-        nextToggleAt_ = now + kSlowHalfPeriodMs;
-    }
 }
 
-void StartupIndicator::beginSlowPhase(unsigned long now) {
-    phase_ = Phase::SlowMqtt;
-    slowPhaseStartedAt_ = now;
+void StartupIndicator::beginMqttPhase(unsigned long now) {
+    phase_ = Phase::FastMqtt;
+    phaseStartedAt_ = now;
+    lastToggleAt_ = now;
     ledOn_ = true;
-    nextToggleAt_ = now + kSlowHalfPeriodMs;
     ledSwitch_.showStartupPulse(ledOn_);
-    Serial.println("Startup LED: slow MQTT search pattern");
+    Serial.println("Startup LED: fast MQTT pattern (minimum 2 seconds)");
 }
 
 void StartupIndicator::complete() {

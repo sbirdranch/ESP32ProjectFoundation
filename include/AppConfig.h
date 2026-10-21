@@ -41,7 +41,7 @@ constexpr unsigned int MqttPort = 1883;
 constexpr char DeviceId[] = APP_DEVICE_ID;
 constexpr char DeviceName[] = "ESP32-S3 Foundation LED";
 constexpr int LedPin = 48;
-constexpr uint8_t LedBrightness = 24;
+constexpr uint8_t LedBrightness = 15;
 constexpr unsigned long WifiRetryMs = 10000;
 constexpr unsigned long MqttRetryMs = 5000;
 }

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <FastLED.h>
-
 class LedSwitch {
 public:
     void begin();
@@ -13,7 +11,6 @@ public:
 private:
     void showSwitchState();
 
-    CRGB pixels_[1];
     bool isOn_ = false;
     bool initialized_ = false;
     bool startupActive_ = false;

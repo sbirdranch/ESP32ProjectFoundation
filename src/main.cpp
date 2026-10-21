@@ -1,5 +1,6 @@
 #include <Arduino.h>
 
+#include "AppConfig.h"
 #include "LedSwitch.h"
 #include "MqttSwitch.h"
 #include "OtaService.h"
@@ -14,6 +15,11 @@ WifiService wifiService;
 
 void setup() {
     Serial.begin(115200);
+    Serial.println("ESP32 Foundation: Wi-Fi, MQTT, OTA and startup indicator enabled");
+    Serial.println("LED driver: ESP32 Arduino core neopixelWrite");
+    Serial.printf("LED configuration: WS2812, GPIO%d, GRB, brightness=%u\n",
+                  AppConfig::LedPin,
+                  static_cast<unsigned int>(AppConfig::LedBrightness));
     Serial.printf(
         "ESP32-S3 memory: flash=%lu bytes, PSRAM=%lu bytes\n",
         static_cast<unsigned long>(ESP.getFlashChipSize()),

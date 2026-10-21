@@ -40,7 +40,19 @@ The local `include/secrets.h` file is ignored by Git. Do not commit Wi-Fi or OTA
 
 ## RGB LED and Startup Pattern
 
-The onboard WS2812 pixel is on GPIO48. The MQTT switch uses green for `ON` and black for `OFF`; the startup indicator uses blue. At boot it blinks rapidly in 500 ms cycles up to four times or until Wi-Fi connects, then blinks with 500 ms on/off intervals for up to two seconds or until MQTT connects. The sequence does not block network services.
+The LED uses the ESP32 Arduino core's `neopixelWrite` RMT driver with GRB byte order and brightness 15. The hardware isolation test worked with this driver after the FastLED-based test remained white. Wi-Fi, MQTT, OTA, and the startup indicator are enabled.
+
+The onboard WS2812 pixel is on GPIO48. After each power-on or reset, expect these LED sequences in order:
+
+| Stage | Visible LED sequence | Duration and completion |
+| --- | --- | --- |
+| 1. Wi-Fi | Slow blue flashes: 500 ms on, 500 ms off | At least 2 seconds (normally 2 full flashes); continues until Wi-Fi connects. |
+| 2. MQTT | Fast blue flashes: 250 ms on, 250 ms off | At least another 2 seconds (normally 4 full flashes); continues until both Wi-Fi and MQTT are connected. |
+| 3. Ready | Blue flashing stops; LED is off by default | MQTT `ON` turns it steady green; MQTT `OFF` turns it off. |
+
+With quick connections, the expected sequence is **2 slow blue flashes, then 4 fast blue flashes, then off**. Both blue patterns run even if the connections complete immediately, giving at least four seconds of startup indication. A connection that takes longer extends its corresponding pattern.
+
+Network services continue during the sequence. MQTT LED commands received during startup update the saved switch state; when the blue flashing finishes, the LED displays the latest state (green for `ON`, off for `OFF`). These patterns run at startup only; later disconnections do not restart them.
 
 Connection transitions, reconnect attempts, received MQTT topics and payloads, and errors are printed to the serial console at 115200 baud. Select the USB or UART monitor environment to match the cable in use.
 

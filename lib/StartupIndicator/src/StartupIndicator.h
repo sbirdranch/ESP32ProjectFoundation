@@ -10,18 +10,17 @@ public:
 
 private:
     enum class Phase {
-        FastWifi,
-        SlowMqtt,
+        SlowWifi,
+        FastMqtt,
         Complete
     };
 
-    void beginSlowPhase(unsigned long now);
+    void beginMqttPhase(unsigned long now);
     void complete();
 
     LedSwitch& ledSwitch_;
     Phase phase_ = Phase::Complete;
-    unsigned long nextToggleAt_ = 0;
-    unsigned long slowPhaseStartedAt_ = 0;
-    unsigned int fastFlashCount_ = 0;
+    unsigned long phaseStartedAt_ = 0;
+    unsigned long lastToggleAt_ = 0;
     bool ledOn_ = false;
 };
