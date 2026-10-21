@@ -26,18 +26,30 @@ void MqttSwitch::begin() {
     activeInstance_ = this;
     mqttClient_.setServer(AppConfig::MqttHost, AppConfig::MqttPort);
     mqttClient_.setCallback(messageCallback);
-    mqttClient_.setBufferSize(512);
+    if (!mqttClient_.setBufferSize(512)) {
+        Serial.println("MQTT error: unable to set packet buffer size");
+    }
     mqttClient_.setKeepAlive(30);
     mqttClient_.setSocketTimeout(2);
+    Serial.printf("MQTT configured for %s:%u\n", AppConfig::MqttHost, AppConfig::MqttPort);
 }
 
 void MqttSwitch::loop(bool wifiConnected) {
     if (!wifiConnected) {
+        if (wasConnected_) {
+            Serial.println("MQTT disconnected because Wi-Fi is unavailable");
+            wasConnected_ = false;
+        }
         return;
     }
 
     if (!mqttClient_.connected()) {
+        if (wasConnected_) {
+            Serial.printf("MQTT disconnected; state=%d\n", mqttClient_.state());
+            wasConnected_ = false;
+        }
         if (millis() - lastAttemptAt_ >= AppConfig::MqttRetryMs) {
+            Serial.printf("MQTT connecting to %s:%u\n", AppConfig::MqttHost, AppConfig::MqttPort);
             connect();
             lastAttemptAt_ = millis();
         }
@@ -45,6 +57,10 @@ void MqttSwitch::loop(bool wifiConnected) {
     }
 
     mqttClient_.loop();
+}
+
+bool MqttSwitch::isConnected() {
+    return mqttClient_.connected();
 }
 
 void MqttSwitch::connect() {
@@ -73,14 +89,24 @@ void MqttSwitch::connect() {
     }
 
     Serial.println("MQTT connected");
-    mqttClient_.publish(kAvailabilityTopic, kPayloadOnline, true);
-    mqttClient_.subscribe(kCommandTopic);
+    wasConnected_ = true;
+    if (!mqttClient_.publish(kAvailabilityTopic, kPayloadOnline, true)) {
+        Serial.println("MQTT error: failed to publish online availability");
+    }
+    if (!mqttClient_.subscribe(kCommandTopic)) {
+        Serial.println("MQTT error: failed to subscribe to LED command topic");
+    }
     publishDiscovery();
     publishState();
 }
 
 void MqttSwitch::handleMessage(const char* topic, const uint8_t* payload, unsigned int length) {
+    Serial.printf("MQTT message topic=%s payload=", topic);
+    Serial.write(payload, length);
+    Serial.println();
+
     if (strcmp(topic, kCommandTopic) != 0) {
+        Serial.println("MQTT error: unrecognized message topic");
         return;
     }
 
@@ -89,7 +115,7 @@ void MqttSwitch::handleMessage(const char* topic, const uint8_t* payload, unsign
     } else if (length == 3 && memcmp(payload, kPayloadOff, 3) == 0) {
         ledSwitch_.set(false);
     } else {
-        Serial.println("Ignored invalid LED command");
+        Serial.println("MQTT error: unrecognized command; expected exactly ON or OFF");
         return;
     }
 
@@ -115,21 +141,25 @@ void MqttSwitch::publishDiscovery() {
     JsonArray identifiers = device["identifiers"].to<JsonArray>();
     identifiers.add(AppConfig::DeviceId);
     device["name"] = AppConfig::DeviceName;
-    device["manufacturer"] = "ESP32 Project Foundation";
-    device["model"] = "ELEGOO ESP-WROOM-32";
+    device["manufacturer"] = "Lonely Binary";
+    device["model"] = "ESP32-S3 N16R8";
 
     char payload[512];
     const size_t payloadLength = serializeJson(document, payload, sizeof(payload));
     if (payloadLength == 0 || payloadLength >= sizeof(payload)) {
-        Serial.println("Unable to serialize Home Assistant discovery");
+        Serial.println("MQTT error: unable to serialize Home Assistant discovery");
         return;
     }
 
-    mqttClient_.publish(kDiscoveryTopic, payload, true);
+    if (!mqttClient_.publish(kDiscoveryTopic, payload, true)) {
+        Serial.println("MQTT error: failed to publish Home Assistant discovery");
+    }
 }
 
 void MqttSwitch::publishState() {
-    mqttClient_.publish(kStateTopic, ledSwitch_.isOn() ? kPayloadOn : kPayloadOff, true);
+    if (!mqttClient_.publish(kStateTopic, ledSwitch_.isOn() ? kPayloadOn : kPayloadOff, true)) {
+        Serial.println("MQTT error: failed to publish LED state");
+    }
 }
 
 void MqttSwitch::messageCallback(char* topic, uint8_t* payload, unsigned int length) {

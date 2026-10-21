@@ -6,5 +6,5 @@
 #define MQTT_USERNAME ""
 #define MQTT_PASSWORD ""
 #define APP_DEVICE_ID "esp32-foundation-01"
-#define APP_LED_PIN 2
-#define APP_LED_ACTIVE_LOW 0
+#define APP_LED_PIN 48
+#define APP_LED_BRIGHTNESS 24

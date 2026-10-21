@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #if __has_include("secrets.h")
 #include "secrets.h"
 #endif
@@ -25,15 +27,15 @@
 #endif
 
 #ifndef APP_LED_PIN
-#define APP_LED_PIN 2
+#define APP_LED_PIN 48
 #endif
 
 #ifndef APP_DEVICE_ID
 #define APP_DEVICE_ID "esp32-foundation-01"
 #endif
 
-#ifndef APP_LED_ACTIVE_LOW
-#define APP_LED_ACTIVE_LOW 0
+#ifndef APP_LED_BRIGHTNESS
+#define APP_LED_BRIGHTNESS 24
 #endif
 
 namespace AppConfig {
@@ -45,9 +47,9 @@ constexpr char MqttPassword[] = MQTT_PASSWORD;
 constexpr char MqttHost[] = "192.168.0.179";
 constexpr unsigned int MqttPort = 1883;
 constexpr char DeviceId[] = APP_DEVICE_ID;
-constexpr char DeviceName[] = "ESP32 Foundation LED";
+constexpr char DeviceName[] = "ESP32-S3 Foundation LED";
 constexpr int LedPin = APP_LED_PIN;
-constexpr bool LedActiveLow = APP_LED_ACTIVE_LOW != 0;
+constexpr uint8_t LedBrightness = APP_LED_BRIGHTNESS;
 constexpr unsigned long WifiRetryMs = 10000;
 constexpr unsigned long MqttRetryMs = 5000;
 }

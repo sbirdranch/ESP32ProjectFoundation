@@ -10,6 +10,7 @@ public:
     explicit MqttSwitch(LedSwitch& ledSwitch);
     void begin();
     void loop(bool wifiConnected);
+    bool isConnected();
 
 private:
     void connect();
@@ -22,6 +23,7 @@ private:
     PubSubClient mqttClient_;
     LedSwitch& ledSwitch_;
     unsigned long lastAttemptAt_ = 0;
+    bool wasConnected_ = false;
 
     static MqttSwitch* activeInstance_;
 };

@@ -15,6 +15,7 @@ void WifiService::begin() {
         return;
     }
 
+    Serial.printf("Wi-Fi connecting to SSID '%s'\n", AppConfig::WifiSsid);
     WiFi.begin(AppConfig::WifiSsid, AppConfig::WifiPassword);
     lastAttemptAt_ = millis();
 }
@@ -34,7 +35,12 @@ void WifiService::loop() {
 
     const bool connected = isConnected();
     if (connected != wasConnected_) {
-        Serial.println(connected ? "Wi-Fi connected" : "Wi-Fi disconnected");
+        if (connected) {
+            const String ipAddress = WiFi.localIP().toString();
+            Serial.printf("Wi-Fi connected; IP=%s\n", ipAddress.c_str());
+        } else {
+            Serial.printf("Wi-Fi disconnected; status=%d\n", static_cast<int>(WiFi.status()));
+        }
         wasConnected_ = connected;
     }
 
@@ -42,6 +48,7 @@ void WifiService::loop() {
         return;
     }
 
+    Serial.printf("Wi-Fi reconnect attempt; status=%d\n", static_cast<int>(WiFi.status()));
     WiFi.reconnect();
     lastAttemptAt_ = millis();
 }

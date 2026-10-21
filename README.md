@@ -4,21 +4,47 @@ A reusable PlatformIO/Arduino foundation for ESP32 projects using Wi-Fi, OTA fir
 
 ## Starting Board
 
-The initial target is the ELEGOO ESP32 development board with an ESP-WROOM-32 module, CP2102 USB-to-serial bridge, USB-C connector, and 4 MB SPI flash. PlatformIO uses the `esp32dev` board profile.
+The initial target is the Lonely Binary ESP32-S3 Gold Edition N16R8: an ESP32-S3-DEVKITC-1 V1.6 with 16 MB QIO flash, 8 MB OPI PSRAM, two USB-C ports, and one WS2812 RGB LED on GPIO48.
 
-Pinout reference for the starting board:
+![Lonely Binary ESP32-S3 N16R8 pinout](assets/ESP32_S3_N16R8_LonelyBinary.jpg)
 
-![ELEGOO ESP-WROOM-32 development board pinout](assets/esp32wroom_elegoo.jpg)
+PlatformIO uses the `esp32-s3-devkitc-1` board profile, with N16R8 flash and PSRAM settings in `platformio.ini`.
+
+## Programming and Serial Console
+
+Start with the USB-C port labeled **UART**. This is the default programming and serial-monitor path through the CP2102 bridge:
+
+```powershell
+pio run -e esp32-s3-uart -t upload
+pio device monitor -e esp32-s3-uart
+```
+
+If using the other USB-C port labeled **USB**, select the Native USB environment:
+
+```powershell
+pio run -e esp32-s3-usb -t upload
+pio device monitor -e esp32-s3-usb
+```
+
+If both ports or multiple boards are connected, select the matching serial port in PlatformIO before uploading or opening the monitor.
 
 ## Setup
 
 1. Copy `include/secrets.example.h` to `include/secrets.h`.
 2. Set the Wi-Fi password and a unique OTA password in `include/secrets.h`. The SSID is set to `ElCamino` in the example.
-3. Check that the board's onboard LED is connected to GPIO 2 and confirm its polarity. Override `APP_LED_PIN` or `APP_LED_ACTIVE_LOW` in `include/secrets.h` if needed. GPIO 2 is a provisional default, not a verified property of every board revision.
-4. Build with `pio run -e esp32dev` and initially upload over USB with `pio run -e esp32dev -t upload`.
-5. Set the same OTA password in the current PowerShell session as `ESP32_OTA_PASSWORD`, then upload over the network with `pio run -e esp32dev_ota -t upload`. The device must already be running firmware with ArduinoOTA enabled on the same LAN.
+3. Build and upload using the USB environment above. Use the UART environment only if USB programming is unavailable.
+3. Start with the default UART environment for programming and serial monitoring. Select the Native USB environment only when connected to the other USB-C socket.
+4. To update over Wi-Fi, set `ESP32_OTA_PASSWORD` in the current PowerShell session to the same value as `OTA_PASSWORD` in `include/secrets.h`, then run `pio run -e esp32-s3-ota -t upload`. The device must already be running firmware with OTA enabled on the same LAN.
 
 The local `include/secrets.h` file is ignored by Git. Do not commit Wi-Fi or OTA passwords.
+
+## RGB LED and Startup Pattern
+
+The onboard WS2812 pixel is on GPIO48. The MQTT switch uses green for `ON` and black for `OFF`; the startup indicator uses blue. At boot it blinks rapidly in 500 ms cycles up to four times or until Wi-Fi connects, then blinks with 500 ms on/off intervals for up to two seconds or until MQTT connects. The sequence does not block network services.
+
+Connection transitions, reconnect attempts, received MQTT topics and payloads, and errors are printed to the serial console at 115200 baud. Select the USB or UART monitor environment to match the cable in use.
+
+At boot, the console also prints detected flash and PSRAM sizes and reports if PSRAM is missing.
 
 ## MQTT and Home Assistant
 
@@ -33,6 +59,6 @@ The initial broker is `192.168.0.179:1883` over plain MQTT/TCP, with anonymous a
 
 The device publishes reported state and discovery retained, and uses an MQTT Last Will for offline availability. Commands should not be published retained. The broker permits anonymous, unrestricted publish/subscribe on the home LAN, so do not send secrets over MQTT or expose this device to untrusted networks.
 
-## Future Purchases
+## Board Reference
 
-[ELEGOO ESP32 development board](https://link.amazon/B01nJKKED)
+[Lonely Binary ESP32-S3 N16R8 board guide](https://learn.lonelybinary.com/boards/esp32-s3)

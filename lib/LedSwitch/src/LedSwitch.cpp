@@ -1,12 +1,12 @@
-#include <Arduino.h>
-
 #include "AppConfig.h"
 #include "LedSwitch.h"
 
 void LedSwitch::begin() {
-    pinMode(AppConfig::LedPin, OUTPUT);
+    FastLED.addLeds<WS2812, AppConfig::LedPin, GRB>(pixels_, 1);
+    FastLED.setBrightness(AppConfig::LedBrightness);
     isOn_ = false;
-    digitalWrite(AppConfig::LedPin, AppConfig::LedActiveLow ? HIGH : LOW);
+    pixels_[0] = CRGB::Black;
+    FastLED.show();
     initialized_ = true;
 }
 
@@ -16,10 +16,31 @@ void LedSwitch::set(bool on) {
     }
 
     isOn_ = on;
-    const uint8_t output = (on != AppConfig::LedActiveLow) ? HIGH : LOW;
-    digitalWrite(AppConfig::LedPin, output);
+    if (!startupActive_) {
+        showSwitchState();
+    }
 }
 
 bool LedSwitch::isOn() const {
     return isOn_;
+}
+
+void LedSwitch::showStartupPulse(bool on) {
+    if (!initialized_) {
+        return;
+    }
+
+    startupActive_ = true;
+    pixels_[0] = on ? CRGB::Blue : CRGB::Black;
+    FastLED.show();
+}
+
+void LedSwitch::endStartup() {
+    startupActive_ = false;
+    showSwitchState();
+}
+
+void LedSwitch::showSwitchState() {
+    pixels_[0] = isOn_ ? CRGB::Green : CRGB::Black;
+    FastLED.show();
 }
