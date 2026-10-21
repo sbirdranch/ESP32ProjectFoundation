@@ -26,16 +26,8 @@
 #define MQTT_PASSWORD ""
 #endif
 
-#ifndef APP_LED_PIN
-#define APP_LED_PIN 48
-#endif
-
 #ifndef APP_DEVICE_ID
 #define APP_DEVICE_ID "esp32-foundation-01"
-#endif
-
-#ifndef APP_LED_BRIGHTNESS
-#define APP_LED_BRIGHTNESS 24
 #endif
 
 namespace AppConfig {
@@ -48,8 +40,8 @@ constexpr char MqttHost[] = "192.168.0.179";
 constexpr unsigned int MqttPort = 1883;
 constexpr char DeviceId[] = APP_DEVICE_ID;
 constexpr char DeviceName[] = "ESP32-S3 Foundation LED";
-constexpr int LedPin = APP_LED_PIN;
-constexpr uint8_t LedBrightness = APP_LED_BRIGHTNESS;
+constexpr int LedPin = 48;
+constexpr uint8_t LedBrightness = 24;
 constexpr unsigned long WifiRetryMs = 10000;
 constexpr unsigned long MqttRetryMs = 5000;
 }
