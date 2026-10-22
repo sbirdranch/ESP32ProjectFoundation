@@ -31,7 +31,7 @@
 #endif
 
 namespace AppConfig {
-constexpr char FirmwareVersion[] = "0.1.0";
+constexpr char FirmwareVersion[] = "0.2.0";
 constexpr char WifiSsid[] = WIFI_SSID;
 constexpr char WifiPassword[] = WIFI_PASSWORD;
 constexpr char OtaPassword[] = OTA_PASSWORD;
