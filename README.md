@@ -6,9 +6,31 @@ ESP32-S3 firmware controlling a linear window actuator with separate OPEN and CL
 
 Firmware and local tests are implemented on the `window-opener` branch. Host controller/output, MQTT service protocol, LED and foundation startup tests pass. The ESP32-S3 UART build passes. Physical wiring, actuator travel/end stops, live Home Assistant and OTA operation remain unverified. Firmware has not been uploaded as part of implementation.
 
-## Startup and Indicator
+## Window Status LED Colors
 
-The GPIO48 WS2812 preserves the foundation startup pattern: slow blue Wi-Fi flashes for at least two seconds, then fast blue MQTT flashes for at least two seconds. Network services and movement timing continue during startup. Afterwards, Unknown is green, Open is blue and Closed is red. During Opening/Closing the previous endpoint color remains (green when no endpoint is known). STOP clears the endpoint and displays green. The LED is not a separate HA entity.
+After startup, the onboard LED on **GPIO48** shows the window state with a **steady color**:
+
+![Window status LED guide: Open is blue, Closed is green, Unknown is red.](assets/window-led-states.svg)
+
+| Window state | LED color | Meaning |
+| --- | --- | --- |
+| **Open** | **Blue** | The OPEN run timer finished; the window is assumed open. |
+| **Closed** | **Green** | The CLOSE run timer finished; the window is assumed closed. |
+| **Unknown** | **Red** | No endpoint is known: after boot, STOP, or OTA interruption. |
+| Durring Opening / Closing | Keep the previous endpoint color | Blue if previously Open, green if previously Closed, red if Unknown. |
+
+Open and Closed are assumed endpoints; there is no position feedback. The LED is not a separate HA entity.
+
+## Startup LED Sequence
+
+During startup, the same LED flashes blue to show connection progress. Once both startup stages finish, it switches to the steady window-state color above.
+
+| Startup stage | LED pattern | Duration |
+| --- | --- | --- |
+| Connecting to Wi-Fi | Slow blue flashes | At least 2 seconds; continues until Wi-Fi connects. |
+| Connecting to MQTT | Fast blue flashes | At least 2 more seconds; continues until both connections are ready. |
+
+Network services and movement timing continue during startup. These flashing patterns run only at startup.
 
 ## Home Assistant Behavior
 

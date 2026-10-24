@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="250" viewBox="0 0 900 250" role="img" aria-labelledby="title description">
+  <title id="title">Window status LED color guide</title>
+  <desc id="description">After startup: Open is steady blue, Closed is steady green, Unknown is steady red. During movement, retain the previous endpoint color.</desc>
+  <rect width="900" height="250" rx="16" fill="#f1f5f9"/>
+  <g font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">
+    <text x="450" y="33" font-size="20" font-weight="700" fill="#0f172a">WINDOW STATUS ? AFTER STARTUP</text>
+    <g fill="#fff" stroke="#cbd5e1"><rect x="20" y="53" width="275" height="151" rx="12"/><rect x="312" y="53" width="275" height="151" rx="12"/><rect x="604" y="53" width="276" height="151" rx="12"/></g>
+    <circle cx="158" cy="96" r="23" fill="#2563eb" stroke="#1e40af" stroke-width="3"/>
+    <circle cx="450" cy="96" r="23" fill="#16a34a" stroke="#166534" stroke-width="3"/>
+    <circle cx="742" cy="96" r="23" fill="#dc2626" stroke="#991b1b" stroke-width="3"/>
+    <g fill="#0f172a" font-size="24" font-weight="700"><text x="158" y="153">OPEN</text><text x="450" y="153">CLOSED</text><text x="742" y="153">UNKNOWN</text></g>
+    <g fill="#334155" font-size="17"><text x="158" y="181">Steady blue</text><text x="450" y="181">Steady green</text><text x="742" y="181">Steady red</text></g>
+    <text x="450" y="233" font-size="16" fill="#334155">Opening / Closing: keep the previous endpoint color.</text>
+  </g>
+</svg>

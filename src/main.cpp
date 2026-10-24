@@ -39,7 +39,7 @@ void setup() {
     otaService.setBeforeUpdate([]() {
         windowController.stop(millis());
         outputs.apply(windowController);
-        ledSwitch.setColor(0, AppConfig::LedBrightness, 0);
+        ledSwitch.setColor(AppConfig::LedBrightness, 0, 0);
         if (windowMqtt.isConnected()) windowMqtt.publishState();
     });
 }
@@ -55,8 +55,8 @@ void loop() {
     outputs.apply(windowController);
     const auto endpoint = windowController.endpoint();
     const auto brightness = AppConfig::LedBrightness;
-    ledSwitch.setColor(endpoint == Window::State::Closed ? brightness : 0,
-                      endpoint == Window::State::Unknown ? brightness : 0,
+    ledSwitch.setColor(endpoint == Window::State::Unknown ? brightness : 0,
+                      endpoint == Window::State::Closed ? brightness : 0,
                       endpoint == Window::State::Open ? brightness : 0);
     windowMqtt.publishPendingState();
     startupIndicator.update(wifiService.isConnected(), windowMqtt.isConnected());
