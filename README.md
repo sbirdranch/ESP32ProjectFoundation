@@ -1,6 +1,46 @@
-# ESP32 Project Foundation
+# Left Window Opener
 
-A reusable PlatformIO/Arduino foundation for ESP32 projects using Wi-Fi, OTA firmware updates, MQTT, and Home Assistant MQTT discovery.
+ESP32-S3 firmware controlling a linear window actuator with separate OPEN and CLOSE relay outputs. Device identity is `WindowOpener_Left`, forced in AppConfig even if local secrets define an older foundation ID.
+
+## Status
+
+Firmware and local tests are implemented on the `window-opener` branch. Host controller/output, MQTT service protocol, LED and foundation startup tests pass. The ESP32-S3 UART build passes. Physical wiring, actuator travel/end stops, live Home Assistant and OTA operation remain unverified. Firmware has not been uploaded as part of implementation.
+
+## Startup and Indicator
+
+The GPIO48 WS2812 preserves the foundation startup pattern: slow blue Wi-Fi flashes for at least two seconds, then fast blue MQTT flashes for at least two seconds. Network services and movement timing continue during startup. Afterwards, Unknown is green, Open is blue and Closed is red. During Opening/Closing the previous endpoint color remains (green when no endpoint is known). STOP clears the endpoint and displays green. The LED is not a separate HA entity.
+
+## Home Assistant Behavior
+
+MQTT discovery creates a window cover with OPEN, CLOSE and STOP controls. Each direction command starts a 30-second run; repeated commands in the same direction restart it. Reversal first turns both outputs off for 500 ms, then starts the new direction and its full run timer. New commands replace pending movement; STOP cancels both active and pending movement immediately.
+
+At timeout both outputs turn off and firmware reports the requested endpoint. **Open and Closed are assumptions, not measured positions.** The actuator must have working internal end-of-travel limit switches. STOP reports Unknown. Every boot starts inactive and reports Unknown rather than restoring retained position. Discovery translates Unknown into HA's unknown cover state.
+
+Wi-Fi/MQTT loss allows the local timed movement to finish. Reconnection republishes current status. Before OTA starts, firmware stops outputs, cancels pending movement and sets Unknown; it publishes that state if connected. If OTA fails, outputs stay off until a new command. Like the foundation, network connection attempts use synchronous library calls, so the local loop is cooperative rather than a hard real-time cutoff.
+
+| Purpose | Topic | Payload / retention |
+| --- | --- | --- |
+| Command | `devices/WindowOpener_Left/window/set` | Exact `OPEN`, `CLOSE`, `STOP`; non-retained |
+| State | `devices/WindowOpener_Left/window/state` | `Opening`, `Closing`, `Open`, `Closed`, `Unknown`; retained |
+| Availability | `devices/WindowOpener_Left/availability` | `online` / `offline`; retained, Last Will offline |
+| Discovery | `homeassistant/cover/WindowOpener_Left/window/config` | Retained JSON |
+| Rain event | `weather/events` | `{"event":"rain_started"}`; non-retained |
+
+A rain-start event starts the same timed CLOSE operation. A later explicit command preempts it; another rain event restarts CLOSE. There is no continuing-rain lockout. An offline opener can miss this non-retained event. Publishers must enforce non-retained commands/events; the device does not reject retained delivery. Invalid commands, malformed JSON and unrelated weather events leave movement unchanged. Rain messages are limited to 256 bytes. `weather/outdoor_temperature_c` is not consumed.
+
+Home Assistant's rain-start automation will be configured separately later. It should publish `{"event":"rain_started"}` to `weather/events` with `retain: false` on the transition into rain, not continuously while raining.
+
+## Wiring and Configuration
+
+| Signal | GPIO | Behavior |
+| --- | ---: | --- |
+| OPEN relay input | 10 | Active HIGH |
+| CLOSE relay input | 11 | Active HIGH |
+| Onboard WS2812 | 48 | Startup and window status |
+
+`include/AppConfig.h` exposes `OpenRelayPin`, `CloseRelayPin`, `WindowRunMs` (30000) and `ReversalPauseMs` (500). Both direction pins are initialized LOW before networking. Output writes clear the inactive direction before asserting the other.
+
+GPIOs are logic outputs only. Use appropriately rated actuator power and relay hardware providing the required direction-control circuit. Verify polarity, GPIO availability and reset/boot behavior before connecting the actuator; firmware cannot control pins while the ESP32 is held in reset. Confirm the actuator's internal limit switches stop travel and that 30 seconds covers the full stroke. Enclosure design and a right-side opener are out of scope.
 
 ## Starting Board
 
@@ -28,67 +68,19 @@ pio device monitor -e esp32-s3-usb
 
 If both ports or multiple boards are connected, select the matching serial port in PlatformIO before uploading or opening the monitor.
 
-## Setup
+## Setup and OTA
 
-1. Copy `include/secrets.example.h` to `include/secrets.h`.
-2. Set the Wi-Fi password and a unique OTA password in `include/secrets.h`. The SSID is set to `ElCamino` in the example.
-3. Build and upload using the USB environment above. Use the UART environment only if USB programming is unavailable.
-3. Start with the default UART environment for programming and serial monitoring. Select the Native USB environment only when connected to the other USB-C socket.
-4. To update over Wi-Fi, set `ESP32_OTA_PASSWORD` in the current PowerShell session to the same value as `OTA_PASSWORD` in `include/secrets.h`, then run `pio run -e esp32-s3-ota -t upload`. The device must already be running firmware with OTA enabled on the same LAN.
+Copy `include/secrets.example.h` to the ignored `include/secrets.h` and set local Wi-Fi, MQTT and OTA credentials. Never commit secrets. This project retains the foundation broker configuration (plain MQTT on the home LAN); `MqttHost` and `MqttPort` are in AppConfig.
 
-The local `include/secrets.h` file is ignored by Git. Do not commit Wi-Fi or OTA passwords.
+The OTA hostname and PlatformIO upload target are `WindowOpener_Left` / `WindowOpener_Left.local`. Configure `ESP32_OTA_PASSWORD` in the current shell to match local `OTA_PASSWORD`, then use `pio run -e esp32-s3-ota -t upload`. OTA is disabled without a password. Initial flashing uses UART as shown above. Serial diagnostics run at 115200 baud.
 
-## RGB LED and Startup Pattern
-
-The LED uses the ESP32 Arduino core's `neopixelWrite` RMT driver with GRB byte order and brightness 15. The hardware isolation test worked with this driver after the FastLED-based test remained white. Wi-Fi, MQTT, OTA, and the startup indicator are enabled.
-
-The onboard WS2812 pixel is on GPIO48. After each power-on or reset, expect these LED sequences in order:
-
-| Stage | Visible LED sequence | Duration and completion |
-| --- | --- | --- |
-| 1. Wi-Fi | Slow blue flashes: 500 ms on, 500 ms off | At least 2 seconds (normally 2 full flashes); continues until Wi-Fi connects. |
-| 2. MQTT | Fast blue flashes: 250 ms on, 250 ms off | At least another 2 seconds (normally 4 full flashes); continues until both Wi-Fi and MQTT are connected. |
-| 3. Ready | Blue flashing stops; LED is off by default | MQTT `ON` turns it steady green; MQTT `OFF` turns it off. |
-
-With quick connections, the expected sequence is **2 slow blue flashes, then 4 fast blue flashes, then off**. Both blue patterns run even if the connections complete immediately, giving at least four seconds of startup indication. A connection that takes longer extends its corresponding pattern.
-
-Network services continue during the sequence. MQTT LED commands received during startup update the saved switch state; when the blue flashing finishes, the LED displays the latest state (green for `ON`, off for `OFF`). These patterns run at startup only; later disconnections do not restart them.
-
-Connection transitions, reconnect attempts, received MQTT topics and payloads, and errors are printed to the serial console at 115200 baud. Select the USB or UART monitor environment to match the cable in use.
-
-At boot, the console also prints detected flash and PSRAM sizes and reports if PSRAM is missing.
-
-## MQTT and Home Assistant
-
-The initial broker is `192.168.0.179:1883` over plain MQTT/TCP, with anonymous access. Home Assistant is already connected to this broker; the firmware publishes MQTT switch discovery for that existing integration.
-
-| Purpose | Topic | Payload |
-| --- | --- | --- |
-| Command | `devices/esp32-foundation-01/led/set` | `ON` or `OFF` |
-| Reported state | `devices/esp32-foundation-01/led/state` | `ON` or `OFF` |
-| Availability | `devices/esp32-foundation-01/led/availability` | `online` or `offline` |
-| Home Assistant discovery | `homeassistant/switch/esp32-foundation-01/led/config` | Retained JSON configuration |
-
-The device publishes reported state and discovery retained, and uses an MQTT Last Will for offline availability. Commands should not be published retained. The broker permits anonymous, unrestricted publish/subscribe on the home LAN, so do not send secrets over MQTT or expose this device to untrusted networks.
-
-## Foundation Validation and Future Wall Panel
-
-See [Foundation Completion and Future Wall Panel Plan](docs/FOUNDATION_PLAN.md)
-for the MQTT test runner, HA checklist, OTA version tests, acceptance results,
-and the future panel discovery design. Firmware starts at version `0.1.0`, printed
-at boot and included in HA discovery as `device.sw_version`.
+## Build and Validation
 
 ```powershell
-python -m venv .venv-test
-.\.venv-test\Scripts\python.exe -m pip install -r tools/requirements-test.txt
-.\.venv-test\Scripts\python.exe tools/test_mqtt.py --device-id esp32-foundation-01
+pio run -e esp32-s3-uart
+powershell -ExecutionPolicy Bypass -File tools/test_window.ps1
 ```
 
-The test controls the selected device's LED. Pause competing controllers first;
-add `--interactive` for operator-assisted power/Wi-Fi and physical LED checks.
-Reports go to `.pio/mqtt-test-report.json`. Hardware, HA and OTA checks remain
-Pending until actually observed; a successful automated run does not grant sign-off.
+The test script requires g++ and the ArduinoJson headers installed by the UART build. MQTT service tests compile the production service with real ArduinoJson and a fake PubSubClient transport; they do not exercise the LAN broker or Home Assistant. All ten existing foundation Python MQTT wire regression tests also pass. The original foundation MQTT wire runner remains available for foundation devices, not this cover.
 
-## Board Reference
-
-[Lonely Binary ESP32-S3 N16R8 board guide](https://learn.lonelybinary.com/boards/esp32-s3)
+Before sign-off, verify the startup flashes, inactive boot outputs, directions, relay polarity, reversal pause, end stops, timeout, STOP, rain close, LED colors, HA cover commands/states/availability, and OTA stop/reconnect behavior on the device. Configure HA's rain publisher separately and confirm it sends non-retained events. See [plan.md](plan.md) for accepted behavior and remaining validation.

@@ -2,13 +2,16 @@
 
 #include "AppConfig.h"
 #include "LedSwitch.h"
-#include "MqttSwitch.h"
+#include "WindowMqtt.h"
+#include "WindowOutputs.h"
 #include "OtaService.h"
 #include "StartupIndicator.h"
 #include "WifiService.h"
 
 LedSwitch ledSwitch;
-MqttSwitch mqttSwitch(ledSwitch);
+Window::Controller windowController(AppConfig::WindowRunMs, AppConfig::ReversalPauseMs);
+WindowOutputs outputs(AppConfig::OpenRelayPin, AppConfig::CloseRelayPin);
+WindowMqtt windowMqtt(windowController);
 OtaService otaService;
 StartupIndicator startupIndicator(ledSwitch);
 WifiService wifiService;
@@ -16,7 +19,7 @@ WifiService wifiService;
 void setup() {
     Serial.begin(115200);
     Serial.printf("Firmware version: %s\n", AppConfig::FirmwareVersion);
-    Serial.println("ESP32 Foundation: Wi-Fi, MQTT, OTA and startup indicator enabled");
+    Serial.println("Left Window Opener: timed actuator control, MQTT, Wi-Fi and OTA enabled");
     Serial.println("LED driver: ESP32 Arduino core neopixelWrite");
     Serial.printf("LED configuration: WS2812, GPIO%d, GRB, brightness=%u\n",
                   AppConfig::LedPin,
@@ -28,16 +31,33 @@ void setup() {
     if (!psramFound()) {
         Serial.println("Hardware error: PSRAM was not detected");
     }
+    outputs.begin();
     ledSwitch.begin();
     startupIndicator.begin();
     wifiService.begin();
-    mqttSwitch.begin();
+    windowMqtt.begin();
+    otaService.setBeforeUpdate([]() {
+        windowController.stop(millis());
+        outputs.apply(windowController);
+        ledSwitch.setColor(0, AppConfig::LedBrightness, 0);
+        if (windowMqtt.isConnected()) windowMqtt.publishState();
+    });
 }
 
 void loop() {
+    windowController.update(millis());
+    outputs.apply(windowController);
     wifiService.loop();
     otaService.beginIfReady(wifiService.isConnected());
     otaService.loop();
-    mqttSwitch.loop(wifiService.isConnected());
-    startupIndicator.update(wifiService.isConnected(), mqttSwitch.isConnected());
+    windowMqtt.loop(wifiService.isConnected());
+    windowController.update(millis());
+    outputs.apply(windowController);
+    const auto endpoint = windowController.endpoint();
+    const auto brightness = AppConfig::LedBrightness;
+    ledSwitch.setColor(endpoint == Window::State::Closed ? brightness : 0,
+                      endpoint == Window::State::Unknown ? brightness : 0,
+                      endpoint == Window::State::Open ? brightness : 0);
+    windowMqtt.publishPendingState();
+    startupIndicator.update(wifiService.isConnected(), windowMqtt.isConnected());
 }

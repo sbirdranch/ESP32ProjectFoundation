@@ -5,6 +5,7 @@
 
 void LedSwitch::begin() {
     isOn_ = false;
+    red_ = green_ = blue_ = 0;
     startupActive_ = false;
     // The Arduino core sends GRB data using its own RMT implementation.
     neopixelWrite(AppConfig::LedPin, 0, 0, 0);
@@ -17,6 +18,8 @@ void LedSwitch::set(bool on) {
     }
 
     isOn_ = on;
+    red_ = blue_ = 0;
+    green_ = on ? AppConfig::LedBrightness : 0;
     if (!startupActive_) {
         showSwitchState();
     }
@@ -40,6 +43,12 @@ void LedSwitch::endStartup() {
     showSwitchState();
 }
 
+void LedSwitch::setColor(unsigned char red, unsigned char green, unsigned char blue) {
+    if (red_ == red && green_ == green && blue_ == blue) return;
+    red_ = red; green_ = green; blue_ = blue;
+    if (initialized_ && !startupActive_) showSwitchState();
+}
+
 void LedSwitch::showSwitchState() {
-    neopixelWrite(AppConfig::LedPin, 0, isOn_ ? AppConfig::LedBrightness : 0, 0);
+    neopixelWrite(AppConfig::LedPin, red_, green_, blue_);
 }

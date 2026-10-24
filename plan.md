@@ -2,7 +2,7 @@
 
 ## Status
 
-Planning is complete. This project will build the first window opener from the ESP32 Project Foundation on the local `Window-opener` branch. The firmware will control the left window; a right-side opener may be added later. Hardware, live Home Assistant behavior, and OTA operation must be verified on the device before sign-off.
+Implementation is complete on the local `window-opener` branch, based on the ESP32 Project Foundation. Controller/output, MQTT service protocol (fake transport with real JSON), LED and foundation startup host tests pass; the UART firmware build passes. Hardware, live broker/HA and OTA checks are pending; no firmware upload or push has been performed. The firmware will control the left window; a right-side opener may be added later. Hardware, live Home Assistant behavior, and OTA operation must be verified on the device before sign-off.
 
 ## Goal
 
@@ -20,11 +20,14 @@ Ensure the compiled device ID is `WindowOpener_Left`, including when the ignored
 
 - MQTT commands are exact, non-retained `OPEN`, `CLOSE`, and `STOP` payloads.
 - `OPEN` energizes only the open relay output. `CLOSE` energizes only the close relay output.
-- Each `OPEN` or `CLOSE` command immediately preempts the current action and restarts a configurable 30-second run timer.
+- Each `OPEN` or `CLOSE` command immediately preempts the current action. When reversing direction, de-energize both outputs for a configurable 500 ms before energizing the new direction. Start the configurable 30-second run timer when the requested direction output is energized; repeated same-direction commands restart that timer.
 - When the run timer expires, de-energize both relay outputs and report the commanded endpoint (`Open` or `Closed`). The actuator's internal limit switch is expected to stop travel; firmware cannot confirm the physical position.
 - `STOP` immediately de-energizes both relay outputs and reports `Unknown`.
 - Invalid commands do not change the outputs or reported state.
 - Keep the two direction outputs mutually exclusive and initialize both inactive before networking starts.
+- On every boot, publish `Unknown` with both outputs inactive, regardless of the previous retained MQTT state.
+- Wi-Fi or MQTT loss does not interrupt timed movement; the local run timer still de-energizes the outputs when it expires.
+- Before an OTA update, stop both outputs, cancel pending movement, and set status to `Unknown`. Publish that status if MQTT is available; after reboot, publish `Unknown` again.
 
 ## LED Status
 
@@ -53,11 +56,15 @@ On each rain-start event, start the same timed close operation as a `CLOSE` comm
 
 Use exact payload matching and ignore malformed or unrelated weather messages. The retained Celsius temperature topic `weather/outdoor_temperature_c` is not used by this project.
 
+Publishers are responsible for ensuring commands and rain events are non-retained. Firmware is not required to detect or reject retained deliveries.
+
 ## Hardware and Configuration
 
 - Target board: Lonely Binary ESP32-S3 Gold Edition N16R8.
 - Onboard WS2812 LED: GPIO48.
 - Two configurable digital relay outputs, one for each direction; both active-high.
+- Default OPEN output: GPIO10. Default CLOSE output: GPIO11.
+- Default direction-reversal pause: 500 ms with both outputs inactive; configurable in `include/AppConfig.h`.
 - The open and close GPIO assignments and the run duration must be configurable in `include/AppConfig.h`.
 - Verify GPIO availability, relay polarity, and relay behavior during ESP32 reset/boot before connecting the actuator.
 - Confirm the relay hardware and actuator power are appropriately rated. GPIO pins are logic outputs only.
@@ -75,6 +82,7 @@ Use exact payload matching and ignore malformed or unrelated weather messages. T
 ## Validation
 
 - Host tests: timer expiry and reset; repeated and reversing commands; immediate preemption; Stop; rain close; output exclusivity; status and LED mapping; timer wraparound where applicable.
+- Include reversal-delay timing, commands/Stop during the reversal pause, boot-to-Unknown, continued movement during network loss, and OTA cancellation of active/pending movement.
 - MQTT tests: cover discovery identity and topics; exact command handling; retained status; non-retained commands/events; Rain-start close behavior; invalid command/event rejection; state updates after timeout and Stop.
 - Build: `pio run -e esp32-s3-uart`.
 - Hardware: confirm Wi-Fi/MQTT startup flashes, relay outputs inactive at boot, correct direction and polarity, actuator internal end stops, 30-second timeout, command preemption, Stop, rain close, and LED colors.
@@ -90,3 +98,18 @@ Use exact payload matching and ignore malformed or unrelated weather messages. T
 - No position sensor: endpoint state after timeout is the commanded endpoint, assumed based on the actuator's internal limit switches.
 - Rain event: non-retained JSON `{"event":"rain_started"}` on `weather/events`; offline event loss is accepted.
 - LED is blue at `Open`, red at `Closed`, green at `Unknown`, and preserves the last endpoint color during motion.
+- OPEN uses GPIO10 and CLOSE uses GPIO11 by default; both are configurable.
+- Direction reversal includes a configurable 500 ms pause with both outputs inactive; the run timer starts upon energizing the new direction.
+- Boot always starts with outputs inactive and state `Unknown`.
+- Network loss allows timed movement to finish. OTA stops outputs, cancels pending movement, and sets state to `Unknown`.
+- Non-retained command/event enforcement belongs to publishers.
+
+## Implementation Validation ? 2026-10-24
+
+- Passed: `tools/test_window.ps1` ? controller/output timing and exclusivity (including uint32 wraparound), MQTT service protocol with fake transport and real ArduinoJson, LED colors/startup handoff, and foundation startup regression.
+- Passed: 10 existing foundation Python MQTT wire regression tests using workspace-local Paho dependency.
+- Passed: `pio run -e esp32-s3-uart` ? RAM 49,160 bytes, flash 774,585 bytes.
+- Passed: `git diff --check`.
+- Firmware uses cooperative loop timing; inherited synchronous network calls can briefly delay timer checks. The actuator's internal limit switches remain essential.
+- Pending on-device validation: wiring/reset behavior, relay direction/polarity and mechanical end stops, live HA/broker discovery and rain commands, and OTA stop/reboot/reconnect. The HA rain automation remains a separate later setup.
+- No firmware upload or remote push performed. Implementation and local software validation are ready for the planned local commit; physical sign-off is pending.

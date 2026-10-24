@@ -19,7 +19,8 @@ void OtaService::beginIfReady(bool wifiConnected) {
 
     ArduinoOTA.setHostname(AppConfig::DeviceId);
     ArduinoOTA.setPassword(AppConfig::OtaPassword);
-    ArduinoOTA.onStart([]() {
+    ArduinoOTA.onStart([this]() {
+        if (beforeUpdate_) beforeUpdate_();
         Serial.println("OTA update started");
     });
     ArduinoOTA.onEnd([]() {
