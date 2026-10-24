@@ -19,7 +19,7 @@ WifiService wifiService;
 void setup() {
     Serial.begin(115200);
     Serial.printf("Firmware version: %s\n", AppConfig::FirmwareVersion);
-    Serial.println("Left Window Opener: timed actuator control, MQTT, Wi-Fi and OTA enabled");
+    Serial.println("Window Opener: timed actuator control, MQTT, Wi-Fi and OTA enabled");
     Serial.println("LED driver: ESP32 Arduino core neopixelWrite");
     Serial.printf("LED configuration: WS2812, GPIO%d, GRB, brightness=%u\n",
                   AppConfig::LedPin,

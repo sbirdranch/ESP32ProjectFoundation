@@ -1,4 +1,4 @@
-# Left Window Opener
+# Window Opener Project
 
 ESP32-S3 firmware controlling a linear window actuator with separate OPEN and CLOSE relay outputs. Device identity is `WindowOpener_Left`, forced in AppConfig even if local secrets define an older foundation ID.
 
