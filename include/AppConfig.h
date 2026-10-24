@@ -29,7 +29,7 @@
 #ifdef APP_DEVICE_ID
 #undef APP_DEVICE_ID
 #endif
-#define APP_DEVICE_ID "WindowOpener_Left"
+#define APP_DEVICE_ID "WindowOpener_Right"
 
 namespace AppConfig {
 constexpr char FirmwareVersion[] = "0.3.0";
@@ -41,7 +41,7 @@ constexpr char MqttPassword[] = MQTT_PASSWORD;
 constexpr char MqttHost[] = "192.168.0.179";
 constexpr unsigned int MqttPort = 1883;
 constexpr char DeviceId[] = APP_DEVICE_ID;
-constexpr char DeviceName[] = "Left Window Opener";
+constexpr char DeviceName[] = "Right Window Opener";
 constexpr int LedPin = 48;
 constexpr int OpenRelayPin = 10;
 constexpr int CloseRelayPin = 11;

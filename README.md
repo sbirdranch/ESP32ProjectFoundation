@@ -1,6 +1,6 @@
 # Window Opener Project
 
-ESP32-S3 firmware controlling a linear window actuator with separate OPEN and CLOSE relay outputs. Device identity is `WindowOpener_Left`, forced in AppConfig even if local secrets define an older foundation ID.
+ESP32-S3 firmware controlling a linear window actuator with separate OPEN and CLOSE relay outputs. The default device identity is configured in AppConfig; see [Creating Another Named Instance](#creating-another-named-instance) to configure a unique identity for another opener.
 
 ## Status
 
@@ -94,7 +94,40 @@ If both ports or multiple boards are connected, select the matching serial port 
 
 Copy `include/secrets.example.h` to the ignored `include/secrets.h` and set local Wi-Fi, MQTT and OTA credentials. Never commit secrets. This project retains the foundation broker configuration (plain MQTT on the home LAN); `MqttHost` and `MqttPort` are in AppConfig.
 
-The OTA hostname and PlatformIO upload target are `WindowOpener_Left` / `WindowOpener_Left.local`. Configure `ESP32_OTA_PASSWORD` in the current shell to match local `OTA_PASSWORD`, then use `pio run -e esp32-s3-ota -t upload`. OTA is disabled without a password. Initial flashing uses UART as shown above. Serial diagnostics run at 115200 baud.
+For OTA, configure `ESP32_OTA_PASSWORD` in the current shell to match local `OTA_PASSWORD`, then use `pio run -e esp32-s3-ota -t upload`. OTA is disabled without a password. Initial flashing uses UART as shown above. Serial diagnostics run at 115200 baud.
+
+## Creating Another Named Instance
+
+Give each physical opener a unique device ID, for example `WindowOpener_Right`. This ID is used for the MQTT client, MQTT topics, Home Assistant discovery identifiers, and OTA hostname. The human-readable name shown by Home Assistant is configured separately.
+
+In the ignored `include/secrets.h`, set the values for the new instance:
+
+```cpp
+#define APP_DEVICE_ID "WindowOpener_Right"
+#define APP_DEVICE_NAME "Right Window Opener"
+```
+
+In the current firmware, changing these values in `secrets.h` alone will not take effect: `include/AppConfig.h` forcibly defines `APP_DEVICE_ID`, and `DeviceName` is hard-coded there. To use the per-device values above, replace the forced ID definition with defaults that preserve the existing values when secrets do not provide them:
+
+```cpp
+#ifndef APP_DEVICE_ID
+#define APP_DEVICE_ID "WindowOpener_Left"
+#endif
+
+#ifndef APP_DEVICE_NAME
+#define APP_DEVICE_NAME "Left Window Opener"
+#endif
+```
+
+Then set `AppConfig::DeviceName` from `APP_DEVICE_NAME` instead of a string literal. Keep `AppConfig::DeviceId` using `APP_DEVICE_ID`. With those changes, the new firmware publishes under its own MQTT and Home Assistant identity while the existing left opener keeps its ID and name. Do not commit `secrets.h` or credentials.
+
+For OTA on the renamed device, change `upload_port` in the `[env:esp32-s3-ota]` section of `platformio.ini` to the same ID followed by `.local`, for example:
+
+```ini
+upload_port = WindowOpener_Right.local
+```
+
+The ID in `secrets.h` and the OTA upload target must match. USB/UART uploads do not use this OTA hostname setting.
 
 ## Build and Validation
 
