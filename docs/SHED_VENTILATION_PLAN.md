@@ -2,7 +2,7 @@
 
 ## Status
 
-This project branch starts from the ESP32 Project Foundation. The current commit is documentation-only; shed-specific firmware and hardware behavior are not implemented yet.
+This project branch starts from the ESP32 Project Foundation. Shed-specific firmware is implemented and passes the host regression tests and ESP32-S3 UART build. Physical hardware, OTA, and end-to-end HA behavior remain unverified until tested on the board and broker.
 
 ## Goal
 
@@ -46,12 +46,12 @@ Publish a retained JSON state message from the shed that includes at least the c
 
 HA already receives Tempest data. Add an HA automation to publish outdoor temperature to MQTT when it changes and after HA startup/recovery. The ESP32 consumes that MQTT value; it does not call the HA API or parse Tempest UDP in this version.
 
-Define separate Weather MQTT channels:
+Weather MQTT channels:
 
-- Retained latest outdoor-temperature state, so a device reconnect can recover the current value.
-- Non-retained Weather event notices, reserved for future events such as Rain that other projects may consume.
+- Retained numeric Celsius outdoor-temperature state on `weather/outdoor_temperature_c`, so a device reconnect can recover the current value.
+- Non-retained Weather event notices on `weather/events`, reserved for future events such as Rain that other projects may consume.
 
-Use a documented normalized temperature unit and explicit topic/payload schema. Final shared topic strings must be agreed before implementation; a retained temperature state must not be overwritten by a Rain notice.
+An HA automation publishes Tempest updates and republishes after HA startup. Convert the source entity to Celsius before publishing. A retained temperature state must not be overwritten by a Rain notice.
 
 Keep HA fan commands and setpoint commands non-retained. Publish authoritative retained state/discovery and retain the foundation's online/offline availability behavior. The foundation currently uses plain MQTT/TCP on the home LAN; do not expose it to untrusted networks without addressing broker authentication and transport security.
 
@@ -60,18 +60,18 @@ Keep HA fan commands and setpoint commands non-retained. Publish authoritative r
 - Target board: Lonely Binary ESP32-S3 Gold Edition N16R8.
 - Sensor: SHT40, I2C address selectable between `0x44` and `0x45` (default `0x44`).
 - Power the bare SHT40 at 3.3V; keep I2C pull-ups at 3.3V. Never apply more than 3.6V to the sensor or 5V to ESP32 GPIO. Verify the breakout board's power and pull-up circuitry before wiring.
-- Reserve the board's available I2C pins. Select a separate available GPIO for the relay and one for the button after checking the board pinout and other board functions.
-- Keep relay/button active levels and GPIO selections configurable until the exact modules and wiring are checked. Confirm the relay input's behavior during ESP32 reset/boot before attaching the fan.
+- Current configurable pin defaults: SDA GPIO8, SCL GPIO9, relay GPIO10 active-high, and button GPIO11 active-low.
+- Keep relay/button active levels and GPIO selections configurable. Confirm the exact modules, pin availability, and relay input behavior during ESP32 reset/boot before attaching the fan.
 - Enclosure design is out of scope for the first implementation.
 
 ## Implementation Sequence
 
-1. Add the device-specific identity/configuration and align the PlatformIO OTA upload target with the `ShedVentilation_esp32s3` OTA hostname.
-2. Add a setpoint module for defaults, range/gap validation, Preferences/NVS load and writes, and storage-error reporting. Keep parsing and validation testable independently of hardware where practical.
-3. Add non-blocking SHT40 sampling and validated indoor readings with fault and age reporting.
-4. Add the relay output, button debounce, LED mirroring, and testable temperature-control state machine. Set the relay OFF before network startup.
-5. Add the product MQTT/HA service, retained JSON state, fan commands, setpoint command/state handling, discovery, availability, and HA Tempest bridge documentation/automation contract.
-6. Update project documentation and add focused host tests.
+1. Add device identity/configuration and align the OTA target with `ShedVentilation_esp32s3`. Implemented; UART build passes, OTA remains unverified.
+2. Add the setpoint module for defaults, range/gap validation, Preferences/NVS load and writes. Implemented and host-tested.
+3. Add SHT40 sampling and validated indoor readings with fault and age reporting. Implemented; sensor hardware remains unverified.
+4. Add relay output, button debounce, LED mirroring, and the testable temperature controller; initialize relay OFF before networking. Implemented and host-tested; confirm pin polarity on hardware.
+5. Add product MQTT/HA service, retained JSON state, fan and setpoint commands, discovery, availability, and Tempest MQTT bridge. Implemented; live HA behavior remains unverified.
+6. Update project documentation and add focused host tests. Implemented; host suites and UART build pass.
 
 ## Validation
 
@@ -83,6 +83,6 @@ Keep HA fan commands and setpoint commands non-retained. Publish authoritative r
 
 ## Decisions and Remaining Details
 
-Decided: same-repository branch `shed-ventilation`; device ID `ShedVentilation_esp32s3`; 80°F/110°F initial defaults; 60°F–120°F bounds; 2°F minimum setpoint gap; NVS persistence; HA number controls backed by device-reported state; HA-to-MQTT Tempest input; 2°F outdoor margin and 2°F restart gap; preserve relay output on indoor sensor fault; keep the startup LED sequence and then mirror fan output.
+Decided: same-repository branch `shed-ventilation`; device ID `ShedVentilation_esp32s3`; 80°F/110°F initial defaults; 60°F–120°F bounds; 2°F minimum setpoint gap; NVS persistence; HA number controls backed by device-reported state; retained Celsius Weather state on `weather/outdoor_temperature_c` with future events separated on `weather/events`; HA-to-MQTT Tempest input; 2°F outdoor margin and 2°F restart gap; preserve relay output on indoor sensor fault; keep the startup LED sequence and then mirror fan output.
 
-Before firmware implementation, confirm final Weather topic/payload names with other consumers, choose outdoor-data freshness timeout to match Tempest update cadence, verify board GPIO/I2C assignments, and confirm relay input polarity and reset behavior.
+Before hardware sign-off, confirm the Weather topic/payload names with other consumers, tune the ten-minute outdoor freshness timeout to the Tempest update cadence, verify GPIO availability, and confirm relay input polarity/reset behavior. Then test HA discovery and commands, sensor readings, physical fan switching, and OTA on-device.

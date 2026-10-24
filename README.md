@@ -14,6 +14,8 @@ The onboard WS2812 LED on GPIO48 provides the existing slow-blue Wi-Fi and fast-
 
 ## Fan and Home Assistant Behavior
 
+HA provides a **Resume automatic control** button alongside the **Fan control mode** status. Press it when leaving the shed to release a manual override. The thermostat starts from the current fan state: a running fan stays on between the thresholds until temperature reaches the effective OFF threshold; a stopped fan stays off until the effective ON threshold. If temperature is already outside those thresholds, the next valid sensor evaluation applies the appropriate state immediately. Missing/invalid indoor readings continue to hold the output. The command is non-retained `AUTO` on `devices/ShedVentilation_esp32s3/control_mode/set`.
+
 The shed device uses the existing MQTT broker and HA MQTT discovery. Entities include a fan switch, indoor temperature and humidity, outdoor temperature, sensor/weather status, control mode, and editable OFF/ON setpoint numbers. HA ON/OFF commands and the local digital button temporarily override automatic control until the next automatic thermostat state transition.
 
 The default setpoints are 80°F OFF and 110°F ON. Whole-degree values from 60°F through 120°F are accepted, provided OFF is at least 2°F below ON. Values persist in ESP32 NVS. The shed publishes a retained JSON state report containing the accepted setpoints and fan/sensor status; HA displays the setpoints reported by the device. Invalid commands leave stored values unchanged.
@@ -29,6 +31,8 @@ The default setpoints are 80°F OFF and 110°F ON. Whole-degree values from 60°
 | Future Weather notices | `weather/events` | Reserved for non-retained events; not consumed in this version |
 
 HA discovery entities use templates against the retained device state. When an update is rejected or storage fails, the device republishes its last accepted setpoints and reports a setpoint-storage fault.
+
+The fan discovery uses `state_value_template` to translate the reported `fan_on` boolean into ON/OFF feedback. This reports the commanded relay output; there is no airflow feedback. Humidity is rounded to the nearest whole percent in the MQTT state, with HA display precision set to zero decimals. After installing firmware, the controller republishes retained discovery on MQTT connection so existing HA entities receive these updates.
 
 HA already receives Tempest data. The automation below publishes the outdoor temperature to MQTT. With fresh outdoor data, the effective OFF threshold is the greater of the saved OFF setpoint and outdoor temperature plus 2°F. The effective ON threshold is the greater of the saved ON setpoint and effective OFF threshold plus the configured 2°F restart gap. Stale or missing outdoor data falls back to the saved setpoints. The device does not query the HA API or consume Tempest UDP directly.
 
